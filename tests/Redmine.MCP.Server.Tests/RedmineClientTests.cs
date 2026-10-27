@@ -4,16 +4,17 @@ using System.Text.Json.Nodes;
 
 namespace Redmine.MCP.Server.Tests;
 
+[TestClass]
 public sealed class RedmineClientTests
 {
-    [Fact]
+    [TestMethod]
     public void CreateBaseAddress_AppendsTrailingSlashAndKeepsSubpath()
     {
-        Assert.Equal("https://redmine.example/redmine/", RedmineHttpClientSetup.CreateBaseAddress("https://redmine.example/redmine").AbsoluteUri);
-        Assert.Equal("https://redmine.example/redmine/", RedmineHttpClientSetup.CreateBaseAddress(" https://redmine.example/redmine/ ").AbsoluteUri);
+        Assert.AreEqual("https://redmine.example/redmine/", RedmineHttpClientSetup.CreateBaseAddress("https://redmine.example/redmine").AbsoluteUri);
+        Assert.AreEqual("https://redmine.example/redmine/", RedmineHttpClientSetup.CreateBaseAddress(" https://redmine.example/redmine/ ").AbsoluteUri);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task GetPagedAsync_BuildsUrlAndSendsApiKey()
     {
         using RecordingHandler handler = new();
@@ -26,15 +27,15 @@ public sealed class RedmineClientTests
             CancellationToken.None,
             ("project_id", "my project"));
 
-        Assert.Equal("{}", body);
-        Assert.Equal(HttpMethod.Get, handler.Method);
-        Assert.Equal("secret-key", handler.ApiKey);
-        Assert.Equal(
+        Assert.AreEqual("{}", body);
+        Assert.AreEqual(HttpMethod.Get, handler.Method);
+        Assert.AreEqual("secret-key", handler.ApiKey);
+        Assert.AreEqual(
             "https://redmine.example/redmine/issues.json?project_id=my%20project&limit=100&offset=0",
             handler.RequestUri!.AbsoluteUri);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PostAsync_WrapsPayloadInNamedObject()
     {
         using RecordingHandler handler = new();
@@ -47,15 +48,15 @@ public sealed class RedmineClientTests
 
         await client.PostAsync("issues.json", "issue", issue, CancellationToken.None);
 
-        Assert.Equal(HttpMethod.Post, handler.Method);
-        Assert.Equal("https://redmine.example/issues.json", handler.RequestUri!.AbsoluteUri);
-        Assert.NotNull(handler.Body);
+        Assert.AreEqual(HttpMethod.Post, handler.Method);
+        Assert.AreEqual("https://redmine.example/issues.json", handler.RequestUri!.AbsoluteUri);
+        Assert.IsNotNull(handler.Body);
         JsonNode payload = JsonNode.Parse(handler.Body)!;
-        Assert.Equal(4, payload["issue"]!["project_id"]!.GetValue<int>());
-        Assert.Equal("Fix login", payload["issue"]!["subject"]!.GetValue<string>());
+        Assert.AreEqual(4, payload["issue"]!["project_id"]!.GetValue<int>());
+        Assert.AreEqual("Fix login", payload["issue"]!["subject"]!.GetValue<string>());
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SendAsync_IncludesStatusAndBodyWhenRequestFails()
     {
         using RecordingHandler handler = new()
@@ -65,12 +66,12 @@ public sealed class RedmineClientTests
         };
         RedmineClient client = CreateClient(handler, "https://redmine.example/", "secret-key");
 
-        RedmineApiException exception = await Assert.ThrowsAsync<RedmineApiException>(() => client.GetAsync("issues.json", CancellationToken.None));
+        RedmineApiException exception = await Assert.ThrowsExactlyAsync<RedmineApiException>(() => client.GetAsync("issues.json", CancellationToken.None));
 
-        Assert.Equal(422, exception.StatusCode);
-        Assert.Contains("Subject can't be blank", exception.ResponseBody, StringComparison.Ordinal);
-        Assert.Contains("422", exception.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("secret-key", exception.Message, StringComparison.Ordinal);
+        Assert.AreEqual(422, exception.StatusCode);
+        StringAssert.Contains(exception.ResponseBody, "Subject can't be blank", StringComparison.Ordinal);
+        StringAssert.Contains(exception.Message, "422", StringComparison.Ordinal);
+        Assert.IsFalse(exception.Message.Contains("secret-key", StringComparison.Ordinal));
     }
 
     private static RedmineClient CreateClient(RecordingHandler handler, string endpoint, string apiKey)

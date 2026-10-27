@@ -1,11 +1,12 @@
 namespace Redmine.MCP.Server.Tests;
 
+[TestClass]
 public sealed class TextGuideToolsTests
 {
-    [Theory]
-    [InlineData("issue")]
-    [InlineData("comment")]
-    [InlineData("wiki")]
+    [TestMethod]
+    [DataRow("issue")]
+    [DataRow("comment")]
+    [DataRow("wiki")]
     public void GetTextGuide_IncludesSharedReservedWords(string target)
     {
         string guide = new TextGuideTools().GetTextGuide(target);
@@ -54,52 +55,52 @@ public sealed class TextGuideToolsTests
         ];
         foreach (string token in reserved)
         {
-            Assert.Contains(token, guide, StringComparison.Ordinal);
+            StringAssert.Contains(guide, token, StringComparison.Ordinal);
         }
 
-        Assert.DoesNotContain("{{collapse}}", guide, StringComparison.Ordinal);
+        Assert.IsFalse(guide.Contains("{{collapse}}", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [TestMethod]
     public void GetTextGuide_IssueTemplateUsesPlainSubject()
     {
         string guide = new TextGuideTools().GetTextGuide("issue");
 
-        Assert.Contains("subject는 일반 텍스트", guide, StringComparison.Ordinal);
-        Assert.Contains("h2. 배경", guide, StringComparison.Ordinal);
-        Assert.Contains("h2. 재현 절차", guide, StringComparison.Ordinal);
-        Assert.Contains("h2. 기대 결과", guide, StringComparison.Ordinal);
-        Assert.Contains("h2. 실제 결과", guide, StringComparison.Ordinal);
+        StringAssert.Contains(guide, "subject는 일반 텍스트", StringComparison.Ordinal);
+        StringAssert.Contains(guide, "h2. 배경", StringComparison.Ordinal);
+        StringAssert.Contains(guide, "h2. 재현 절차", StringComparison.Ordinal);
+        StringAssert.Contains(guide, "h2. 기대 결과", StringComparison.Ordinal);
+        StringAssert.Contains(guide, "h2. 실제 결과", StringComparison.Ordinal);
     }
 
-    [Fact]
+    [TestMethod]
     public void GetTextGuide_CommentTemplateRejectsEditingExistingNotes()
     {
         string guide = new TextGuideTools().GetTextGuide("comment");
 
-        Assert.Contains("update_issue의 notes", guide, StringComparison.Ordinal);
-        Assert.Contains("기존 댓글은 이 Redmine 2.2에 수정 REST가 없어 고칠 수 없다.", guide, StringComparison.Ordinal);
-        Assert.Contains("bq. 인용할 내용", guide, StringComparison.Ordinal);
-        Assert.Contains("h3. 확인", guide, StringComparison.Ordinal);
+        StringAssert.Contains(guide, "update_issue의 notes", StringComparison.Ordinal);
+        StringAssert.Contains(guide, "기존 댓글은 이 Redmine 2.2에 수정 REST가 없어 고칠 수 없다.", StringComparison.Ordinal);
+        StringAssert.Contains(guide, "bq. 인용할 내용", StringComparison.Ordinal);
+        StringAssert.Contains(guide, "h3. 확인", StringComparison.Ordinal);
     }
 
-    [Fact]
+    [TestMethod]
     public void GetTextGuide_WikiTemplateUsesWikiMacros()
     {
         string guide = new TextGuideTools().GetTextGuide("wiki");
 
-        Assert.Contains("put_wiki_page의 text", guide, StringComparison.Ordinal);
-        Assert.Contains("{{include(페이지)}}와 {{child_pages}}는 위키 페이지에서 쓴다.", guide, StringComparison.Ordinal);
-        Assert.Contains("{{>toc}}", guide, StringComparison.Ordinal);
-        Assert.Contains("h2. 개요", guide, StringComparison.Ordinal);
-        Assert.Contains("h2. 관련 일감", guide, StringComparison.Ordinal);
+        StringAssert.Contains(guide, "put_wiki_page의 text", StringComparison.Ordinal);
+        StringAssert.Contains(guide, "{{include(페이지)}}와 {{child_pages}}는 위키 페이지에서 쓴다.", StringComparison.Ordinal);
+        StringAssert.Contains(guide, "{{>toc}}", StringComparison.Ordinal);
+        StringAssert.Contains(guide, "h2. 개요", StringComparison.Ordinal);
+        StringAssert.Contains(guide, "h2. 관련 일감", StringComparison.Ordinal);
     }
 
-    [Fact]
+    [TestMethod]
     public void GetTextGuide_RejectsUnknownTarget()
     {
-        ArgumentException exception = Assert.Throws<ArgumentException>(() => new TextGuideTools().GetTextGuide("search"));
+        ArgumentException exception = Assert.ThrowsExactly<ArgumentException>(() => new TextGuideTools().GetTextGuide("search"));
 
-        Assert.Contains("issue, comment, wiki", exception.Message, StringComparison.Ordinal);
+        StringAssert.Contains(exception.Message, "issue, comment, wiki", StringComparison.Ordinal);
     }
 }
