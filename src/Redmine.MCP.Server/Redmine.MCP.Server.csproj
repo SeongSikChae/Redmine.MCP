@@ -22,6 +22,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="install-windows-service.bat" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="uninstall-windows-service.bat" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Biz.Bizadm.Microsoft.Extensions.Logging.Extensions" Version="1.0.0" />
     <PackageReference Include="Biz.Bizadm.Serilog.Enrichers.Caller" Version="1.0.0" />
     <PackageReference Include="Biz.Bizadm.Serilog.Sinks.File.Extensions" Version="1.0.0" />
