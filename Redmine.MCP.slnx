@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Redmine.MCP.Server/Redmine.MCP.Server.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Redmine.MCP.Server.Tests/Redmine.MCP.Server.Tests.csproj" />
+  </Folder>
+</Solution>
