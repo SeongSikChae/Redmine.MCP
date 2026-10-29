@@ -74,6 +74,77 @@ public sealed class RedmineClientTests
         Assert.IsFalse(exception.Message.Contains("secret-key", StringComparison.Ordinal));
     }
 
+    [TestMethod]
+    public async Task GetBytesAsync_RelativePath_ReturnsBytesAndSendsApiKeyWithWildcardAccept()
+    {
+        byte[] payload = Encoding.UTF8.GetBytes("hello attachment");
+        using RecordingHandler handler = new()
+        {
+            ResponseBytes = payload
+        };
+        RedmineClient client = CreateClient(handler, "https://redmine.example/redmine", "secret-key");
+
+        byte[] body = await client.GetBytesAsync("attachments/download/9/file.txt", CancellationToken.None);
+
+        CollectionAssert.AreEqual(payload, body);
+        Assert.AreEqual(HttpMethod.Get, handler.Method);
+        Assert.AreEqual("secret-key", handler.ApiKey);
+        Assert.AreEqual(
+            "https://redmine.example/redmine/attachments/download/9/file.txt",
+            handler.RequestUri!.AbsoluteUri);
+        StringAssert.Contains(handler.Accept!, "*/*", StringComparison.Ordinal);
+    }
+
+    [TestMethod]
+    public async Task GetBytesAsync_SameOriginAbsoluteUrl_Succeeds()
+    {
+        byte[] payload = [1, 2, 3, 4];
+        using RecordingHandler handler = new()
+        {
+            ResponseBytes = payload
+        };
+        RedmineClient client = CreateClient(handler, "https://redmine.example/redmine/", "secret-key");
+
+        byte[] body = await client.GetBytesAsync(
+            "https://redmine.example/redmine/attachments/download/9/file.bin",
+            CancellationToken.None);
+
+        CollectionAssert.AreEqual(payload, body);
+        Assert.AreEqual(
+            "https://redmine.example/redmine/attachments/download/9/file.bin",
+            handler.RequestUri!.AbsoluteUri);
+    }
+
+    [TestMethod]
+    public async Task GetBytesAsync_DifferentOrigin_Throws()
+    {
+        using RecordingHandler handler = new();
+        RedmineClient client = CreateClient(handler, "https://redmine.example/", "secret-key");
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            client.GetBytesAsync("https://evil.example/attachments/download/1/x", CancellationToken.None));
+
+        Assert.IsNull(handler.RequestUri);
+    }
+
+    [TestMethod]
+    public async Task GetBytesAsync_HttpError_ThrowsRedmineApiException()
+    {
+        using RecordingHandler handler = new()
+        {
+            StatusCode = HttpStatusCode.NotFound,
+            ResponseBytes = Encoding.UTF8.GetBytes("missing")
+        };
+        RedmineClient client = CreateClient(handler, "https://redmine.example/", "secret-key");
+
+        RedmineApiException exception = await Assert.ThrowsExactlyAsync<RedmineApiException>(() =>
+            client.GetBytesAsync("attachments/download/1/x", CancellationToken.None));
+
+        Assert.AreEqual(404, exception.StatusCode);
+        StringAssert.Contains(exception.ResponseBody, "missing", StringComparison.Ordinal);
+        Assert.IsFalse(exception.Message.Contains("secret-key", StringComparison.Ordinal));
+    }
+
     private static RedmineClient CreateClient(RecordingHandler handler, string endpoint, string apiKey)
     {
         HttpClient httpClient = new(handler, disposeHandler: false);
@@ -95,11 +166,15 @@ public sealed class RedmineClientTests
 
         public string? ApiKey { get; private set; }
 
+        public string? Accept { get; private set; }
+
         public string? Body { get; private set; }
 
         public HttpStatusCode StatusCode { get; init; } = HttpStatusCode.OK;
 
         public string ResponseBody { get; init; } = "{}";
+
+        public byte[]? ResponseBytes { get; init; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -108,12 +183,17 @@ public sealed class RedmineClientTests
             ApiKey = request.Headers.TryGetValues(RedmineHttpClientSetup.ApiKeyHeaderName, out IEnumerable<string>? values)
                 ? values.Single()
                 : null;
+            Accept = string.Join(", ", request.Headers.Accept.Select(static value => value.ToString()));
             Body = request.Content is null
                 ? null
                 : await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+            HttpContent content = ResponseBytes is null
+                ? new StringContent(ResponseBody, Encoding.UTF8, "application/json")
+                : new ByteArrayContent(ResponseBytes);
             return new HttpResponseMessage(StatusCode)
             {
-                Content = new StringContent(ResponseBody, Encoding.UTF8, "application/json")
+                Content = content
             };
         }
     }

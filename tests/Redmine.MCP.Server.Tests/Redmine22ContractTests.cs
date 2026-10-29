@@ -73,6 +73,10 @@ public sealed class Redmine22ContractTests
         string activities = Description(typeof(MetadataTools), nameof(MetadataTools.ListTimeEntryActivities));
         StringAssert.Contains(activities, "시스템 공통 활동만 반환한다", StringComparison.Ordinal);
         StringAssert.Contains(activities, "프로젝트에서 재정의한 활동 ID는 목록에 없다", StringComparison.Ordinal);
+
+        string download = Description(typeof(AttachmentTools), nameof(AttachmentTools.DownloadAttachment));
+        StringAssert.Contains(download, "5MiB", StringComparison.Ordinal);
+        StringAssert.Contains(download, "outputPath는 MCP 서버 호스트", StringComparison.Ordinal);
     }
 
     private static string Description(Type type, string methodName)

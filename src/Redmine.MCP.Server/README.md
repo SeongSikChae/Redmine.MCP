@@ -40,6 +40,13 @@ RedmineApiKey: your-api-key
 - `get_issue`의 `include` 기본값은 `journals`입니다. `children`, `attachments`, `relations`, `changesets`를 받을 수 있습니다.
 - `update_issue`는 성공 시 본문이 비어 있습니다.
 
+### 첨부
+
+- `download_attachment`
+- `attachmentId` 또는 `issueId`+`filename`으로 첨부를 지정합니다. 선택으로 `contentUrl`, `outputPath`를 받습니다.
+- 응답 JSON에 `text` 또는 `contentBase64`를 넣습니다. **5MiB**를 넘으면 인라인 본문 대신 `outputPath`가 필요합니다.
+- `outputPath`는 **MCP 서버 호스트** 경로입니다.
+
 ### 프로젝트
 
 - `list_projects`, `get_project`

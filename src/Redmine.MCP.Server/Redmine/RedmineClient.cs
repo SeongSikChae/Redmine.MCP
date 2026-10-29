@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json.Nodes;
 
@@ -77,6 +78,59 @@ namespace Redmine.MCP.Server
         public Task<string> PutAsync(string path, string wrapper, JsonObject payload, CancellationToken cancellationToken)
         {
             return SendWrappedAsync(HttpMethod.Put, path, wrapper, payload, cancellationToken);
+        }
+
+        public async Task<byte[]> GetBytesAsync(string url, CancellationToken cancellationToken)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(url);
+            Uri requestUri = ResolveDownloadUri(url);
+
+            using HttpRequestMessage request = new(HttpMethod.Get, requestUri);
+            request.Headers.Accept.Clear();
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("*/*"));
+
+            using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            byte[] bytes = response.Content is null
+                ? []
+                : await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new RedmineApiException((int)response.StatusCode, Encoding.UTF8.GetString(bytes));
+            }
+
+            return bytes;
+        }
+
+        private Uri ResolveDownloadUri(string url)
+        {
+            if (_httpClient.BaseAddress is null)
+            {
+                throw new InvalidOperationException("HttpClient BaseAddress is required for attachment download.");
+            }
+
+            Uri baseAddress = _httpClient.BaseAddress;
+            if (Uri.TryCreate(url.Trim(), UriKind.Absolute, out Uri? absolute))
+            {
+                EnsureSameOrigin(baseAddress, absolute);
+                return absolute;
+            }
+
+            string relative = url.Trim().TrimStart('/');
+            return new Uri(baseAddress, relative);
+        }
+
+        internal static void EnsureSameOrigin(Uri baseAddress, Uri candidate)
+        {
+            ArgumentNullException.ThrowIfNull(baseAddress);
+            ArgumentNullException.ThrowIfNull(candidate);
+
+            if (!string.Equals(baseAddress.Scheme, candidate.Scheme, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(baseAddress.IdnHost, candidate.IdnHost, StringComparison.OrdinalIgnoreCase)
+                || baseAddress.Port != candidate.Port)
+            {
+                throw new InvalidOperationException(
+                    $"Attachment URL origin must match the Redmine API endpoint ({baseAddress.GetLeftPart(UriPartial.Authority)}).");
+            }
         }
 
         private Task<string> SendWrappedAsync(

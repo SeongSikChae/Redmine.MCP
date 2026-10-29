@@ -153,6 +153,7 @@ namespace Redmine.MCP.Server
                     options.Stateless = true;
                 })
                 .WithTools<IssueTools>()
+                .WithTools<AttachmentTools>()
                 .WithTools<ProjectTools>()
                 .WithTools<UserTools>()
                 .WithTools<TimeEntryTools>()
