@@ -16,8 +16,11 @@ public sealed class Redmine22ContractTests
         {
             ContentRootPath = ".",
             Port = 6049,
-            RedmineApiEndpoint = "https://redmine.example/",
-            RedmineApiKey = "secret-key"
+            Redmine = new RedmineConfiguration
+            {
+                RedmineApiEndpoint = "https://redmine.example/",
+                RedmineApiKey = "secret-key"
+            }
         });
         TimeEntryTools tools = new(new RedmineClient(httpClient));
 

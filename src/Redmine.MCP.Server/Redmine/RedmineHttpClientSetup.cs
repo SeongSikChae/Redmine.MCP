@@ -11,9 +11,9 @@ namespace Redmine.MCP.Server
             ArgumentNullException.ThrowIfNull(client);
             ArgumentNullException.ThrowIfNull(configuration);
 
-            client.BaseAddress = CreateBaseAddress(configuration.RedmineApiEndpoint);
+            client.BaseAddress = CreateBaseAddress(configuration.Redmine!.RedmineApiEndpoint);
             client.DefaultRequestHeaders.Remove(ApiKeyHeaderName);
-            if (!client.DefaultRequestHeaders.TryAddWithoutValidation(ApiKeyHeaderName, configuration.RedmineApiKey))
+            if (!client.DefaultRequestHeaders.TryAddWithoutValidation(ApiKeyHeaderName, configuration.Redmine.RedmineApiKey))
             {
                 throw new InvalidOperationException("Failed to set the Redmine API key header.");
             }

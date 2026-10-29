@@ -1,0 +1,18 @@
+---
+ContentRootPath: "." # 콘텐츠 루트 (인증서·DEK 등 상대 경로의 기준)
+Port: 6049 # 수신 포트
+Secure:
+  UseSsl: false # HTTPS 사용 여부
+  # ServerCertificate: "server.pfx" # UseSsl: true일 때 필요. PKCS#12/PFX (ContentRootPath 기준)
+  # ServerCertificatePassword: "replace-with-certificate-password" # 인증서 암호 (기동 시 Azure KMS로 암호화·복호화)
+  # CertificateChain: "" # 선택: 인증서 체인에 포함할 인증서 SimpleName (쉼표 구분)
+  # IncludeCipherSuites: "TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256" # 선택: 허용할 TLS 암호 스위트
+AzureKms:
+  ClientCertificateThumbprint: "replace-with-client-certificate-thumbprint" # CurrentUser\My 저장소의 클라이언트 인증서 지문
+  AzureTenantId: "00000000-0000-0000-0000-000000000000" # Azure AD 테넌트 ID
+  AzureClientId: "00000000-0000-0000-0000-000000000000" # Azure AD 앱(클라이언트) ID
+  AzureKeyVaultUrl: "https://YOUR-VAULT.vault.azure.net/" # Azure Key Vault URL
+  SecretsDekFilePath: "secrets.dek" # DEK 파일 (ContentRootPath 기준 상대 경로)
+Redmine:
+  RedmineApiEndpoint: "https://redmine.example.com" # Redmine 기본 URL (끝 슬래시 생략 가능)
+  RedmineApiKey: "replace-with-redmine-api-key" # Redmine API 키 (기동 시 Azure KMS로 암호화·복호화)

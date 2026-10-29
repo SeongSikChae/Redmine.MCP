@@ -1,3 +1,5 @@
+using Azure.Identity;
+using Biz.Bizadm.KMS.Cipher;
 using CommandLine;
 using Serilog;
 using Serilog.Configuration;
@@ -9,6 +11,8 @@ namespace Redmine.MCP.Server
 {
     internal static class Program
     {
+        private const string KEY_NAME = "RedmineMCPKey";
+
         public sealed class CmdMain
         {
             [Option("config", Required = true, HelpText = "config file path")]
@@ -26,6 +30,57 @@ namespace Redmine.MCP.Server
                     YamlDotNet.Serialization.Deserializer deserializer = new YamlDotNet.Serialization.Deserializer();
                     Configuration? configuration = deserializer.Deserialize<Configuration>(File.ReadAllText(cmdMain.ConfigFilePath));
                     ConfigurationValidator.Validate(configuration);
+
+                    using X509Store x509Store = new X509Store(StoreName.My, StoreLocation.CurrentUser);
+                    x509Store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
+
+                    using X509Certificate2 certificate = x509Store.Certificates.Find(X509FindType.FindByThumbprint, configuration.AzureKms!.ClientCertificateThumbprint, false)
+                        .FirstOrDefault(x => x.HasPrivateKey) ?? throw new InvalidOperationException("개인 키가 포함된 인증서를 찾을 수 없습니다.");
+
+                    ClientCertificateCredential credential = new ClientCertificateCredential(
+                        configuration.AzureKms.AzureTenantId,
+                        configuration.AzureKms.AzureClientId,
+                        certificate
+                    );
+
+                    using AzureKeyVaultKekManager manager = await AzureKeyVaultKekManager.CreateAsync(
+                        new Uri(configuration.AzureKms.AzureKeyVaultUrl),
+                        credential,
+                        KEY_NAME
+                    );
+
+                    using IDekCipherService dekCipherService = new DekCipherService(
+                        AesGcmDekCipher.Create(manager.Current, new FileInfo(Path.Combine(configuration.ContentRootPath, configuration.AzureKms.SecretsDekFilePath)))
+                    );
+
+                    bool configRewritten = false;
+
+                    if (configuration.Secure!.ServerCertificatePassword is not null
+                        && !dekCipherService.StartsWithFromPrefix(configuration.Secure.ServerCertificatePassword))
+                    {
+                        configuration.Secure.ServerCertificatePassword = dekCipherService.Encrypt(configuration.Secure.ServerCertificatePassword);
+                        configRewritten = true;
+                    }
+
+                    if (!dekCipherService.StartsWithFromPrefix(configuration.Redmine!.RedmineApiKey))
+                    {
+                        configuration.Redmine.RedmineApiKey = dekCipherService.Encrypt(configuration.Redmine.RedmineApiKey);
+                        configRewritten = true;
+                    }
+
+                    if (configRewritten)
+                    {
+                        YamlDotNet.Serialization.Serializer serializer = new YamlDotNet.Serialization.Serializer();
+                        File.WriteAllText(cmdMain.ConfigFilePath, serializer.Serialize(configuration));
+                    }
+
+                    if (configuration.Secure.ServerCertificatePassword is not null)
+                    {
+                        configuration.Secure.ServerCertificatePassword = dekCipherService.Decrypt(configuration.Secure.ServerCertificatePassword);
+                    }
+
+                    configuration.Redmine.RedmineApiKey = dekCipherService.Decrypt(configuration.Redmine.RedmineApiKey);
+
                     WebApplication app = CreateWebApplication(args, cmdMain, configuration);
                     await RunAsync(app);
                 });
@@ -43,23 +98,23 @@ namespace Redmine.MCP.Server
 
             builder.WebHost.UseKestrel(options =>
             {
-                if (configuration.UseSsl!.Value)
+                if (configuration.Secure!.UseSsl!.Value)
                 {
                     options.ListenAnyIP(configuration.Port!.Value, configure =>
                     {
                         X509Certificate2 certificate = X509CertificateLoader.LoadPkcs12FromFile(
-                            new FileInfo(Path.Combine(configuration.ContentRootPath, configuration.ServerCertificate!)).FullName,
-                            configuration.ServerCertificatePassword
+                            new FileInfo(Path.Combine(configuration.ContentRootPath, configuration.Secure.ServerCertificate!)).FullName,
+                            configuration.Secure.ServerCertificatePassword
                         );
 
                         configure.UseHttps(httpsOptions =>
                         {
                             httpsOptions.ServerCertificate = certificate;
-                            if (configuration.CertificateChain is not null)
+                            if (configuration.Secure.CertificateChain is not null)
                             {
                                 X509Certificate2Collection collection = X509CertificateLoader.LoadPkcs12CollectionFromFile(
-                                    new FileInfo(configuration.ServerCertificate!).FullName,
-                                    configuration.ServerCertificatePassword
+                                    new FileInfo(configuration.Secure.ServerCertificate!).FullName,
+                                    configuration.Secure.ServerCertificatePassword
                                 );
 
                                 Dictionary<string, X509Certificate2> certificates = new Dictionary<string, X509Certificate2>();
@@ -70,7 +125,7 @@ namespace Redmine.MCP.Server
                                 }
 
                                 string[] certificateChain =
-                                    configuration.CertificateChain.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                                    configuration.Secure.CertificateChain.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
                                 httpsOptions.ServerCertificateChain = new X509Certificate2Collection();
 
@@ -82,10 +137,10 @@ namespace Redmine.MCP.Server
                             }
 
                             httpsOptions.SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
-                            if (configuration.IncludeCipherSuites is not null)
+                            if (configuration.Secure.IncludeCipherSuites is not null)
                             {
                                 string[] includeCipherSuites =
-                                configuration.IncludeCipherSuites.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                                configuration.Secure.IncludeCipherSuites.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
                                 if (includeCipherSuites.Length > 0)
                                 {

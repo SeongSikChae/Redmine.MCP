@@ -152,8 +152,11 @@ public sealed class RedmineClientTests
         {
             ContentRootPath = ".",
             Port = 6049,
-            RedmineApiEndpoint = endpoint,
-            RedmineApiKey = apiKey
+            Redmine = new RedmineConfiguration
+            {
+                RedmineApiEndpoint = endpoint,
+                RedmineApiKey = apiKey
+            }
         });
         return new RedmineClient(httpClient);
     }

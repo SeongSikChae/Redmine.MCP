@@ -9,16 +9,28 @@ Redmine REST API를 HTTP MCP 도구로 노출하는 ASP.NET Core 서버입니다
 
 ## 설정
 
+샘플: `src/Redmine.MCP.Server/Configuration.sample.yml`
+
 ```yaml
 ContentRootPath: .
 Port: 6049
-UseSsl: false
-RedmineApiEndpoint: https://redmine.example.com
-RedmineApiKey: your-api-key
+Secure:
+  UseSsl: false
+AzureKms:
+  ClientCertificateThumbprint: replace-with-client-certificate-thumbprint
+  AzureTenantId: 00000000-0000-0000-0000-000000000000
+  AzureClientId: 00000000-0000-0000-0000-000000000000
+  AzureKeyVaultUrl: https://YOUR-VAULT.vault.azure.net/
+  SecretsDekFilePath: secrets.dek
+Redmine:
+  RedmineApiEndpoint: https://redmine.example.com
+  RedmineApiKey: replace-with-redmine-api-key
 ```
 
-- `RedmineApiEndpoint` 끝의 슬래시는 없어도 됩니다. 하위 경로에 설치된 Redmine이면 그 경로까지 포함합니다.
-- `UseSsl: true`이면 `ServerCertificate`와 `ServerCertificatePassword`가 필요합니다.
+- `Redmine.RedmineApiEndpoint` 끝의 슬래시는 없어도 됩니다. 하위 경로에 설치된 Redmine이면 그 경로까지 포함합니다.
+- `Secure.UseSsl: true`이면 `ServerCertificate`와 `ServerCertificatePassword`가 필요합니다.
+- `ServerCertificatePassword`와 `RedmineApiKey`는 기동 시 Azure Key Vault KEK + 로컬 DEK로 암호화·복호화됩니다. 평문으로 넣으면 첫 기동에서 설정 파일이 암호문으로 갱신됩니다.
+- 기존 flat YAML은 수동으로 `Secure` / `AzureKms` / `Redmine` 중첩으로 맞춰야 합니다.
 - 기동에는 `--config`와 `--log`가 필요합니다.
 
 ## Redmine 2.2 제약
